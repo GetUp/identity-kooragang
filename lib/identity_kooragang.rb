@@ -7,8 +7,9 @@ module IdentityKooragang
   ACTIVE_STATUS = 'active'
   FINALISED_STATUS = 'finalised'
   FAILED_STATUS = 'failed'
-  PULL_JOBS = [[:fetch_new_calls, 5.minutes], [:fetch_current_campaigns, 10.minutes]]
+  PULL_JOBS = [[:fetch_current_campaigns, 10.minutes]]
   MEMBER_RECORD_DATA_TYPE='object'
+  MUTEX_EXPIRY_DURATION = 10.minutes
 
   def self.push(sync_id, member_ids, external_system_params)
     begin
@@ -66,27 +67,6 @@ module IdentityKooragang
     Settings.kooragang.base_campaign_url ? sprintf(Settings.kooragang.base_campaign_url, campaign_id.to_s) : nil
   end
 
-  def self.worker_currently_running?(method_name, sync_id)
-    workers = Sidekiq::Workers.new
-    workers.each do |_process_id, _thread_id, work|
-      args = work["payload"]["args"]
-      worker_sync_id = (args.count > 0) ? args[0] : nil
-      worker_sync = worker_sync_id ? Sync.find_by(id: worker_sync_id) : nil
-      next unless worker_sync
-      worker_system = worker_sync.external_system
-      worker_method_name = JSON.parse(worker_sync.external_system_params)["pull_job"]
-      already_running = (worker_system == SYSTEM_NAME &&
-        worker_method_name == method_name &&
-        worker_sync_id != sync_id)
-      if already_running
-        Rails.logger.info "#{SYSTEM_NAME.titleize} #{method_name} skipping as worker already running ..."
-        return true
-      end
-    end
-    Rails.logger.info "#{SYSTEM_NAME.titleize} #{method_name} running ..."
-    return false
-  end
-
   def self.get_pull_jobs
     defined?(PULL_JOBS) && PULL_JOBS.is_a?(Array) ? PULL_JOBS : []
   end
@@ -107,33 +87,38 @@ module IdentityKooragang
   end
 
   def self.fetch_new_calls(sync_id, force: false)
-    ## Do not run method if another worker is currently processing this method
-    if self.worker_currently_running?(__method__.to_s, sync_id)
-      yield 0, {}, {}, true
-      return
+    begin
+      mutex_acquired = acquire_mutex_lock(__method__.to_s, sync_id)
+      unless mutex_acquired
+        yield 0, {}, {}, true
+        return
+      end
+      need_another_batch = fetch_new_calls_impl(sync_id, force) do |records_for_import_count, records_for_import, records_for_import_scope, pull_deferred|
+        yield records_for_import_count, records_for_import, records_for_import_scope, pull_deferred
+      end
+    ensure
+      release_mutex_lock(__method__.to_s) if mutex_acquired
     end
+    schedule_pull_batch(:fetch_new_calls) if need_another_batch
+  end
 
+  def self.fetch_new_calls_impl(sync_id, force)
     started_at = DateTime.now
-    redis_time = Sidekiq.redis { |r| r.get 'kooragang:calls:last_updated_at' }
-    last_updated_at = Time.parse(redis_time || '1970-01-01 00:00:00 UTC')
-    Rails.logger.info "#{SYSTEM_NAME.titleize} #{sync_id}: Fetching calls from: #{last_updated_at.utc.to_s(:inspect)} (redis: '#{redis_time}')"
+    last_updated_at = get_redis_date('kooragang:calls:last_updated_at')
+    last_id = (Sidekiq.redis { |r| r.get 'kooragang:calls:last_id' } || 0).to_i
 
-    updated_calls = Call.updated_calls(force ? DateTime.new() : last_updated_at)
-    updated_calls_all = Call.updated_calls_all(force ? DateTime.new() : last_updated_at)
+    updated_calls = Call.updated_calls(force ? DateTime.new() : last_updated_at, last_id)
+    updated_calls_all = Call.updated_calls_all(force ? DateTime.new() : last_updated_at, last_id)
+
     iteration_method = force ? :find_each : :each
 
-    updated_calls.each { |call|
+    updated_calls.send(iteration_method) do |call|
       handle_new_call(sync_id, call)
-    }
+    end
 
     unless updated_calls.empty?
-      Sidekiq.redis { |r|
-        # Use to_s(:inspect) here since KG stores timestamps with
-        # millisecond precision, but plain [Date]Time.to_s will
-        # truncate the milliseconds, leading to the most recent call
-        # allways being re-sync'ed.
-        r.set 'kooragang:calls:last_updated_at', updated_calls.last.updated_at.utc.to_s(:inspect)
-      }
+      set_redis_date('kooragang:calls:last_updated_at', updated_calls.last.updated_at)
+      Sidekiq.redis { |r| r.set 'kooragang:calls:last_id', updated_calls.last.id }
     end
 
     execution_time_seconds = ((DateTime.now - started_at) * 24 * 60 * 60).to_i
@@ -152,6 +137,71 @@ module IdentityKooragang
       },
       false
     )
+
+    updated_calls.count < updated_calls_all.count
+  end
+
+  def self.fetch_current_campaigns(sync_id, force: false)
+    begin
+      mutex_acquired = acquire_mutex_lock(__method__.to_s, sync_id)
+      unless mutex_acquired
+        yield 0, {}, {}, true
+        return
+      end
+      need_another_batch = fetch_current_campaigns_impl(sync_id, force) do |records_for_import_count, records_for_import, records_for_import_scope, pull_deferred|
+        yield records_for_import_count, records_for_import, records_for_import_scope, pull_deferred
+      end
+    ensure
+      release_mutex_lock(__method__.to_s) if mutex_acquired
+    end
+    schedule_pull_batch(:fetch_current_campaigns) if need_another_batch
+    schedule_pull_batch(:fetch_new_calls)
+  end
+
+  def self.fetch_current_campaigns_impl(sync_id, force)
+    campaigns = IdentityKooragang::Campaign.syncable
+
+    iteration_method = force ? :find_each : :each
+
+    campaigns.send(iteration_method) do |campaign|
+      handle_campaign(campaign, true)
+    end
+
+    yield(
+      campaigns.size,
+      campaigns.pluck(:id),
+      {},
+      false
+    )
+
+    false  # We never need another batch because we always process every campaign.
+  end
+
+  private
+
+  def self.handle_campaign(kg_campaign, update_campaign)
+    contact_campaign = ContactCampaign.find_or_initialize_by(
+      external_id: kg_campaign.id,
+      system: SYSTEM_NAME
+    )
+
+    if contact_campaign.new_record? || update_campaign
+      contact_campaign.update!(
+        name: kg_campaign.name,
+        contact_type: CONTACT_TYPE,
+        created_at: kg_campaign.created_at,
+        updated_at: kg_campaign.updated_at,
+        )
+
+      kg_campaign.questions.each do |k,v|
+        contact_response_key = ContactResponseKey.find_or_initialize_by(
+          key: k, contact_campaign: contact_campaign
+        )
+        contact_response_key.save! if contact_response_key.new_record?
+      end
+    end
+
+    contact_campaign
   end
 
   def self.handle_new_call(sync_id, call)
@@ -187,7 +237,7 @@ module IdentityKooragang
     # Not including questions here by default since by the time we get
     # to this point the campaign should have been synced by
     # fetch_active_campaigns
-    contact_campaign = upsert_campaign(call.callee.campaign, false);
+    contact_campaign = handle_campaign(call.callee.campaign, false);
 
     additional_data = {}
     additional_data[:team] = team.name if team
@@ -228,51 +278,68 @@ module IdentityKooragang
     end
   end
 
-  def self.fetch_current_campaigns(sync_id, force: false)
-    ## Do not run method if another worker is currently processing this method
-    if self.worker_currently_running?(__method__.to_s, sync_id)
-      yield 0, {}, {}, true
-      return
-    end
-
-    campaigns = IdentityKooragang::Campaign.syncable
-    campaigns.each { |campaign|
-      Rails.logger.info "#{SYSTEM_NAME.titleize} #{sync_id}: Updating campaign #{campaign.id}"
-      upsert_campaign(campaign, true)
-    }
-
-    yield(
-      campaigns.size,
-      campaigns.pluck(:id),
-      {},
-      false
-    )
-  end
-
-  private
-
-  def self.upsert_campaign(kg_campaign, update_campaign)
-    contact_campaign = ContactCampaign.find_or_initialize_by(
-      external_id: kg_campaign.id,
-      system: SYSTEM_NAME
-    )
-
-    if contact_campaign.new_record? || update_campaign
-      contact_campaign.update!(
-        name: kg_campaign.name,
-        contact_type: CONTACT_TYPE,
-        created_at: kg_campaign.created_at,
-        updated_at: kg_campaign.updated_at,
-      )
-
-      kg_campaign.questions.each do |k,v|
-        contact_response_key = ContactResponseKey.find_or_initialize_by(
-          key: k, contact_campaign: contact_campaign
-        )
-        contact_response_key.save! if contact_response_key.new_record?
+  def self.acquire_mutex_lock(method_name, sync_id)
+    mutex_name = "#{SYSTEM_NAME}:mutex:#{method_name}"
+    new_mutex_expiry = DateTime.now + MUTEX_EXPIRY_DURATION
+    mutex_acquired = set_redis_date(mutex_name, new_mutex_expiry, true)
+    unless mutex_acquired
+      mutex_expiry = get_redis_date(mutex_name)
+      if mutex_expiry.past?
+        unless worker_currently_running?(method_name, sync_id)
+          delete_redis_date(mutex_name)
+          mutex_acquired = set_redis_date(mutex_name, new_mutex_expiry, true)
+        end
       end
     end
+    mutex_acquired
+  end
 
-    contact_campaign
+  def self.release_mutex_lock(method_name)
+    mutex_name = "#{SYSTEM_NAME}:mutex:#{method_name}"
+    delete_redis_date(mutex_name)
+  end
+
+  def self.get_redis_date(redis_identifier, default_value=Time.at(0))
+    date_str = Sidekiq.redis { |r| r.get redis_identifier }
+    date_str ? Time.parse(date_str) : default_value
+  end
+
+  def self.set_redis_date(redis_identifier, date_time_value, as_mutex=false)
+    date_str = date_time_value.utc.to_s(:inspect) # Ensures fractional seconds are retained
+    if as_mutex
+      Sidekiq.redis { |r| r.setnx redis_identifier, date_str }
+    else
+      Sidekiq.redis { |r| r.set redis_identifier, date_str }
+    end
+  end
+
+  def self.delete_redis_date(redis_identifier)
+    Sidekiq.redis { |r| r.del redis_identifier }
+  end
+
+  def self.schedule_pull_batch(pull_job)
+    sync = Sync.create!(
+      external_system: SYSTEM_NAME,
+      external_system_params: { pull_job: pull_job, time_to_run: DateTime.now }.to_json,
+      sync_type: Sync::PULL_SYNC_TYPE
+    )
+    PullExternalSystemsWorker.perform_async(sync.id)
+  end
+
+  def self.worker_currently_running?(method_name, sync_id)
+    workers = Sidekiq::Workers.new
+    workers.each do |_process_id, _thread_id, work|
+      args = work["payload"]["args"]
+      worker_sync_id = (args.count > 0) ? args[0] : nil
+      worker_sync = worker_sync_id ? Sync.find_by(id: worker_sync_id) : nil
+      next unless worker_sync
+      worker_system = worker_sync.external_system
+      worker_method_name = JSON.parse(worker_sync.external_system_params)["pull_job"]
+      already_running = (worker_system == SYSTEM_NAME &&
+        worker_method_name == method_name &&
+        worker_sync_id != sync_id)
+      return true if already_running
+    end
+    return false
   end
 end
