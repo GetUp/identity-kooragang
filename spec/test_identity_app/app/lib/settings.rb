@@ -11,7 +11,7 @@ class Settings
   def self.kooragang
     return {
       "database_url" => ENV['KOORAGANG_DATABASE_URL'],
-      "read_only_database_url" => ENV['KOORAGANG_DATABASE_URL'],
+      "read_only_database_url" => ENV['KOORAGANG_READ_ONLY_DATABASE_URL'],
       "push_batch_amount" => 10,
       "pull_batch_amount" => 10,
     }

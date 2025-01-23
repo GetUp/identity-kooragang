@@ -1,7 +1,6 @@
 describe IdentityKooragang::KooragangMemberSyncPushSerializer do
   context 'serialize' do
     before(:each) do
-      clean_external_database
       Settings.stub_chain(:kooragang) { {} }
       @sync_id = 1
       @kooragang_campaign = FactoryBot.create(:kooragang_campaign)

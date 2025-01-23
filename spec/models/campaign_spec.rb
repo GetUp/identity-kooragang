@@ -1,7 +1,6 @@
 describe IdentityKooragang::Campaign do
   context '#syncable' do
     before(:each) do
-      clean_external_database
       2.times do
         FactoryBot.create(:kooragang_campaign, status: 'active')
       end

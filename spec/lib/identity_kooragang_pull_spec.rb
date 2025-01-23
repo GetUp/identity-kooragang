@@ -3,7 +3,6 @@ require 'rails_helper'
 describe IdentityKooragang do
   context '#pull' do
     before(:each) do
-      clean_external_database
       @sync_id = 1
       @external_system_params = JSON.generate({'pull_job' => 'fetch_new_calls'})
     end
@@ -19,7 +18,6 @@ describe IdentityKooragang do
   context '#fetch_new_calls' do
 
     before(:each) do
-      clean_external_database
       $redis.reset
 
       @sync_id = 1
@@ -218,7 +216,6 @@ describe IdentityKooragang do
   context '#fetch_current_campaigns' do
 
     before(:each) do
-      clean_external_database
       @sync_id = 1
       2.times do
         FactoryBot.create(:kooragang_campaign_with_rsvp_questions, status: 'active')

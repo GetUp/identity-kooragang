@@ -1,8 +1,6 @@
 describe IdentityKooragang::Callee do
   context '#add_members' do
     before(:each) do
-      clean_external_database
-
       @kooragang_campaign = FactoryBot.create(:kooragang_campaign)
       @member = FactoryBot.create(:member_with_mobile)
       @batch_members = Member.all

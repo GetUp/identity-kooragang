@@ -1,12 +1,17 @@
 default: &default
-  adapter: postgresql
-  encoding: unicode
-  pool: <%= ENV.fetch("RAILS_MAX_THREADS") { 5 } %>
-  database: 'postgres://localhost/identity_kooragang_test_host'
+  primary:
+    adapter: postgresql
+    encoding: unicode
+    database: <%= ENV["DATABASE_URL"] %>
+    pool: <%= ENV.fetch("RAILS_MAX_THREADS") { 5 } %>
+  kooragang:
+    adapter: postgresql
+    encoding: unicode
+    database: <%= ENV["KOORAGANG_DATABASE_URL"] %>
+    pool: <%= ENV.fetch("RAILS_MAX_THREADS") { 5 } %>
+    migrations_paths: <%= Rails.root %>/db/kooragang_migrate
 
 development:
   <<: *default
 test:
-  <<: *default
-production:
   <<: *default
