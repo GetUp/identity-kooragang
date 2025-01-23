@@ -23,7 +23,7 @@ describe IdentityKooragang do
       Settings.stub_chain(:kooragang, :push_batch_amount) { nil }
       Settings.stub_chain(:kooragang, :pull_batch_amount) { nil }
 
-      @time = Time.now - 120.seconds
+      @time = 120.seconds.ago
       @kooragang_campaign = FactoryBot.create(:kooragang_campaign)
       @team = FactoryBot.create(:kooragang_team)
 
@@ -107,7 +107,7 @@ describe IdentityKooragang do
 
     it 'should be idempotent' do
       IdentityKooragang.fetch_new_calls(@sync_id) {}
-      Contact.all.select('contactee_id, contactor_id, duration, system, contact_campaign_id').as_json
+      Contact.select('contactee_id, contactor_id, duration, system, contact_campaign_id').as_json
       expect {
         IdentityKooragang.fetch_new_calls(@sync_id, force: true) {}
       }.to_not change { ContactResponse.count }
@@ -166,12 +166,12 @@ describe IdentityKooragang do
 
     context('with a campaign with an survey answer that is associated with an event id') do
       before do
-        IdentityKooragang::Call.all.destroy_all
+        IdentityKooragang::Call.destroy_all
         member = FactoryBot.create(:member_with_mobile)
         campaign = FactoryBot.create(:kooragang_campaign_with_rsvp_questions)
         callee = FactoryBot.create(:kooragang_callee, phone_number: member.phone, campaign: campaign)
         caller = FactoryBot.create(:kooragang_caller, phone_number: '61427700429')
-        call = FactoryBot.create(:kooragang_call, created_at: 2.minutes.ago, callee: callee, caller: caller, ended_at: Time.now, status: 'test')
+        call = FactoryBot.create(:kooragang_call, created_at: 2.minutes.ago, callee: callee, caller: caller, ended_at: Time.zone.now, status: 'test')
         call.survey_results << IdentityKooragang::SurveyResult.new(question: 'rsvp', answer: 'going')
       end
 
@@ -223,7 +223,7 @@ describe IdentityKooragang do
     it 'should create contact_campaigns' do
       IdentityKooragang.fetch_current_campaigns(@sync_id) {}
       expect(ContactCampaign.count).to eq(3)
-      ContactCampaign.all.each do |campaign|
+      ContactCampaign.find_each do |campaign|
         expect(campaign).to have_attributes(
           system: IdentityKooragang::SYSTEM_NAME,
           contact_type: IdentityKooragang::CONTACT_TYPE

@@ -4,8 +4,8 @@ module IdentityKooragang
     has_many :callees
     has_many :audiences
 
-    ACTIVE_STATUS = 'active'
-    INACTIVE_STATUS = 'inactive'
+    ACTIVE_STATUS = 'active'.freeze
+    INACTIVE_STATUS = 'inactive'.freeze
 
     scope :syncable, -> {
       where(sync_to_identity: true)

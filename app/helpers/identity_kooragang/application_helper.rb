@@ -7,7 +7,7 @@ module IdentityKooragang
     end
 
     def self.campaigns_for_select
-      IdentityKooragang::Campaign.all.order("id DESC").map { |x| ["#{x.id}: #{x.name}", x.id] }
+      IdentityKooragang::Campaign.order("id DESC").map { |x| ["#{x.id}: #{x.name}", x.id] }
     end
   end
 end

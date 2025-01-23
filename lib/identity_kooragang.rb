@@ -1,14 +1,14 @@
 require "identity_kooragang/engine"
 
 module IdentityKooragang
-  SYSTEM_NAME = 'kooragang'
-  SYNCING = 'campaign'
-  CONTACT_TYPE = 'call'
-  ACTIVE_STATUS = 'active'
-  FINALISED_STATUS = 'finalised'
-  FAILED_STATUS = 'failed'
-  PULL_JOBS = [[:fetch_new_calls, 5.minutes], [:fetch_current_campaigns, 10.minutes]]
-  MEMBER_RECORD_DATA_TYPE = 'object'
+  SYSTEM_NAME = 'kooragang'.freeze
+  SYNCING = 'campaign'.freeze
+  CONTACT_TYPE = 'call'.freeze
+  ACTIVE_STATUS = 'active'.freeze
+  FINALISED_STATUS = 'finalised'.freeze
+  FAILED_STATUS = 'failed'.freeze
+  PULL_JOBS = [[:fetch_new_calls, 5.minutes], [:fetch_current_campaigns, 10.minutes]].freeze
+  MEMBER_RECORD_DATA_TYPE = 'object'.freeze
 
   def self.push(sync_id, member_ids, external_system_params)
     begin
@@ -27,12 +27,12 @@ module IdentityKooragang
 
   def self.push_in_batches(sync_id, members, external_system_params)
     begin
-      audience = Audience.find_by_sync_id(sync_id)
+      audience = Audience.find_by(sync_id: sync_id)
       audience.update!(status: ACTIVE_STATUS)
       params = JSON.parse(external_system_params)
       campaign_id = params['campaign_id'].to_i
       phone_type = params['phone_type'].to_s
-      include_rsvped_events = !!params['include_rsvped_events']
+      include_rsvped_events = !params['include_rsvped_events'].nil?
       members.in_batches(of: Settings.kooragang.push_batch_amount).each_with_index do |batch_members, batch_index|
         rows = ActiveModel::Serializer::CollectionSerializer.new(
           batch_members,
@@ -155,7 +155,7 @@ module IdentityKooragang
   end
 
   def self.handle_new_call(sync_id, call)
-    Rails.logger.info "#{SYSTEM_NAME.titleize} #{sync_id}: Handling call: #{call.id}/#{call.updated_at.utc.to_s(:inspect)}"
+    Rails.logger.info "#{SYSTEM_NAME.titleize} #{sync_id}: Handling call: #{call.id}/#{call.updated_at.utc.to_fs(:inspect)}"
 
     contact = Contact.find_or_initialize_by(external_id: call.id.to_s, system: SYSTEM_NAME)
 
@@ -178,7 +178,7 @@ module IdentityKooragang
         entry_point: "#{SYSTEM_NAME}",
         ignore_name_change: false
       )
-      team = Team.find_by_id(call.caller.team_id)
+      team = Team.find_by(id: call.caller.team_id)
     else
       contactor = nil
       team = nil

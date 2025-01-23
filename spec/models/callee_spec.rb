@@ -16,7 +16,7 @@ describe IdentityKooragang::Callee do
     it 'has inserted the correct callees to Kooragang' do
       IdentityKooragang::Callee.add_members(@rows)
       expect(@kooragang_campaign.callees.count).to eq(1)
-      expect(@kooragang_campaign.callees.find_by_phone_number(@member.phone_numbers.mobile.first.phone).first_name).to eq(@member.first_name) # Kooragang allows external IDs to be text
+      expect(@kooragang_campaign.callees.find_by(phone_number: @member.phone_numbers.mobile.first.phone).first_name).to eq(@member.first_name) # Kooragang allows external IDs to be text
     end
 
     it "doesn't insert duplicates into Kooragang" do
