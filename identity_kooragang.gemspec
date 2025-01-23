@@ -19,5 +19,4 @@ Gem::Specification.new do |s|
   s.add_dependency "rails"
   s.add_dependency "pg"
   s.add_dependency "active_model_serializers"
-
 end

@@ -40,11 +40,11 @@ module IdentityKooragang
                          .joins(:event)
                          .where('events.start_time > now()')
                          .where("events.data->>'status' = 'published'")
-        data["upcoming_rsvps"] = rsvps.each_with_index.map{|rsvp, index|
-          "#{index+1}. #{summarise_event(rsvp.event)}"
+        data["upcoming_rsvps"] = rsvps.each_with_index.map { |rsvp, index|
+          "#{index + 1}. #{summarise_event(rsvp.event)}"
         }.join("\n")
       end
-      data["areas"] = @object.areas.each_with_index.map{|area, index|
+      data["areas"] = @object.areas.each_with_index.map { |area, _index|
         {
           name: area.name,
           code: area.code,

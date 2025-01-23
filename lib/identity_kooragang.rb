@@ -8,7 +8,7 @@ module IdentityKooragang
   FINALISED_STATUS = 'finalised'
   FAILED_STATUS = 'failed'
   PULL_JOBS = [[:fetch_new_calls, 5.minutes], [:fetch_current_campaigns, 10.minutes]]
-  MEMBER_RECORD_DATA_TYPE='object'
+  MEMBER_RECORD_DATA_TYPE = 'object'
 
   def self.push(sync_id, member_ids, external_system_params)
     begin
@@ -73,6 +73,7 @@ module IdentityKooragang
       worker_sync_id = (args.count > 0) ? args[0] : nil
       worker_sync = worker_sync_id ? Sync.find_by(id: worker_sync_id) : nil
       next unless worker_sync
+
       worker_system = worker_sync.external_system
       worker_method_name = JSON.parse(worker_sync.external_system_params)["pull_job"]
       already_running = (worker_system == SYSTEM_NAME &&
@@ -120,7 +121,6 @@ module IdentityKooragang
 
     updated_calls = Call.updated_calls(force ? DateTime.new() : last_updated_at)
     updated_calls_all = Call.updated_calls_all(force ? DateTime.new() : last_updated_at)
-    iteration_method = force ? :find_each : :each
 
     updated_calls.each { |call|
       handle_new_call(sync_id, call)
@@ -161,7 +161,7 @@ module IdentityKooragang
 
     # Callee upsert phone against member_id
     contactee = UpsertMember.call(
-      {phones: [{ phone: call.callee.phone_number }], firstname: call.callee.first_name, member_id: call.callee.external_id},
+      { phones: [{ phone: call.callee.phone_number }], firstname: call.callee.first_name, member_id: call.callee.external_id },
       entry_point: "#{SYSTEM_NAME}",
       ignore_name_change: false
     )
@@ -174,7 +174,7 @@ module IdentityKooragang
     # Caller conditional upsert phone against phone_number
     if call.caller
       contactor = UpsertMember.call(
-        {phones: [{ phone: call.caller.phone_number }]},
+        { phones: [{ phone: call.caller.phone_number }] },
         entry_point: "#{SYSTEM_NAME}",
         ignore_name_change: false
       )
@@ -209,7 +209,7 @@ module IdentityKooragang
       contact_response_key = ContactResponseKey.find_or_initialize_by(key: sr.question, contact_campaign: contact_campaign)
       contact_response_key.save! if contact_response_key.new_record?
       contact_response = ContactResponse.find_or_initialize_by(contact: contact, value: sr.answer, contact_response_key: contact_response_key)
-      contact_response.save! if contact_response.new_record? 
+      contact_response.save! if contact_response.new_record?
 
       # Process optouts
       if Settings.kooragang.subscription_id && sr.is_opt_out?
@@ -249,8 +249,6 @@ module IdentityKooragang
     )
   end
 
-  private
-
   def self.upsert_campaign(kg_campaign, update_campaign)
     contact_campaign = ContactCampaign.find_or_initialize_by(
       external_id: kg_campaign.id,
@@ -265,7 +263,7 @@ module IdentityKooragang
         updated_at: kg_campaign.updated_at,
       )
 
-      kg_campaign.questions.each do |k,v|
+      kg_campaign.questions.each do |k, _v|
         contact_response_key = ContactResponseKey.find_or_initialize_by(
           key: k, contact_campaign: contact_campaign
         )

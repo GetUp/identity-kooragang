@@ -1,9 +1,6 @@
-.env.test
-.bundle/*
-log/*.log
-spec/test_identity_app/.env.test
-spec/test_identity_app/log/*.log
+**/.env.test
+.bundle/
+log/
+spec/test_identity_app/log/
 spec/test_identity_app/tmp/
-fixtures/*
-coverage/*
-spec/examples.txt
+tmp/

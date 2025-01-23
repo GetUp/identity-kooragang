@@ -4,11 +4,11 @@ describe IdentityKooragang do
   context '#pull' do
     before(:each) do
       @sync_id = 1
-      @external_system_params = JSON.generate({'pull_job' => 'fetch_new_calls'})
+      @external_system_params = JSON.generate({ 'pull_job' => 'fetch_new_calls' })
     end
 
     context 'with valid parameters' do
-      it 'should call the corresponding method'  do
+      it 'should call the corresponding method' do
         expect(IdentityKooragang).to receive(:fetch_new_calls).exactly(1).times.with(1)
         IdentityKooragang.pull(@sync_id, @external_system_params)
       end
@@ -16,7 +16,6 @@ describe IdentityKooragang do
   end
 
   context '#fetch_new_calls' do
-
     before(:each) do
       @sync_id = 1
       @subscription = FactoryBot.create(:calling_subscription)
@@ -108,17 +107,17 @@ describe IdentityKooragang do
 
     it 'should be idempotent' do
       IdentityKooragang.fetch_new_calls(@sync_id) {}
-      contact_hash = Contact.all.select('contactee_id, contactor_id, duration, system, contact_campaign_id').as_json
+      Contact.all.select('contactee_id, contactor_id, duration, system, contact_campaign_id').as_json
       expect {
         IdentityKooragang.fetch_new_calls(@sync_id, force: true) {}
-      }.to_not change{ ContactResponse.count }
+      }.to_not change { ContactResponse.count }
     end
 
     it 'should update the last_updated_at' do
       old_updated_at = $redis.with { |r| r.get 'kooragang:calls:last_updated_at' }
       sleep 2
       callee = FactoryBot.create(:kooragang_callee, first_name: 'BobNo', phone_number: '61427700408', campaign: @kooragang_campaign)
-      call = FactoryBot.create(:kooragang_call, created_at: @time, callee: callee, ended_at: @time + 60.seconds, status: 'success')
+      FactoryBot.create(:kooragang_call, created_at: @time, callee: callee, ended_at: @time + 60.seconds, status: 'success')
       IdentityKooragang.fetch_new_calls(@sync_id) {}
       new_updated_at = $redis.with { |r| r.get 'kooragang:calls:last_updated_at' }
 
@@ -135,21 +134,21 @@ describe IdentityKooragang do
 
     it 'works if there is no caller' do
       callee = FactoryBot.create(:kooragang_callee, first_name: 'BobNo', phone_number: '61427700409', campaign: @kooragang_campaign)
-      call = FactoryBot.create(:kooragang_call, created_at: @time, callee: callee, ended_at: @time + 60.seconds, status: 'success')
+      FactoryBot.create(:kooragang_call, created_at: @time, callee: callee, ended_at: @time + 60.seconds, status: 'success')
       IdentityKooragang.fetch_new_calls(@sync_id) {}
       expect(Contact.last.contactor).to be_nil
     end
 
     it 'works if there is no name' do
       callee = FactoryBot.create(:kooragang_callee, phone_number: '61427700409', campaign: @kooragang_campaign)
-      call = FactoryBot.create(:kooragang_call, created_at: @time, callee: callee, ended_at: @time + 60.seconds, status: 'success')
+      FactoryBot.create(:kooragang_call, created_at: @time, callee: callee, ended_at: @time + 60.seconds, status: 'success')
       IdentityKooragang.fetch_new_calls(@sync_id) {}
       expect(Contact.last.contactee.phone).to eq('61427700409')
     end
 
     it "skips if callee phone can't be matched" do
       callee = FactoryBot.create(:kooragang_callee, phone_number: '6142709', campaign: @kooragang_campaign)
-      call = FactoryBot.create(:kooragang_call, created_at: @time, callee: callee, ended_at: @time + 60.seconds, status: 'success')
+      FactoryBot.create(:kooragang_call, created_at: @time, callee: callee, ended_at: @time + 60.seconds, status: 'success')
 
       IdentityKooragang.fetch_new_calls(@sync_id) {}
       expect(Contact.count).to eq(3)
@@ -158,7 +157,7 @@ describe IdentityKooragang do
     it "succeeds if caller phone can't be matched" do
       callee = FactoryBot.create(:kooragang_callee, phone_number: '61427700409', campaign: @kooragang_campaign)
       caller = FactoryBot.create(:kooragang_caller, phone_number: '6142409')
-      call = FactoryBot.create(:kooragang_call, created_at: @time, callee: callee, caller: caller, ended_at: @time + 60.seconds, status: 'success')
+      FactoryBot.create(:kooragang_call, created_at: @time, callee: callee, caller: caller, ended_at: @time + 60.seconds, status: 'success')
       IdentityKooragang.fetch_new_calls(@sync_id) {}
       expect(Contact.count).to eq(4)
       expect(Contact.last.contactee.phone).to eq('61427700409')
@@ -176,7 +175,7 @@ describe IdentityKooragang do
         call.survey_results << IdentityKooragang::SurveyResult.new(question: 'rsvp', answer: 'going')
       end
 
-      it 'should rsvp the member to the Nation Builder event when Nation Builder external service is active'  do
+      it 'should rsvp the member to the Nation Builder event when Nation Builder external service is active' do
         expect(IdentityNationBuilder::API).to receive(:rsvp).exactly(1).times.with('stagingsite', anything, 1)
         IdentityKooragang.fetch_new_calls(@sync_id) {}
       end
@@ -212,7 +211,6 @@ describe IdentityKooragang do
   end
 
   context '#fetch_current_campaigns' do
-
     before(:each) do
       @sync_id = 1
       2.times do
@@ -248,6 +246,7 @@ module IdentityNationBuilder
     def self.rsvp(site_slug, member, event_id)
     end
   end
+
   class NationBuilderMemberSyncPushSerializer < ActiveModel::Serializer
   end
 end

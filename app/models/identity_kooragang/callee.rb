@@ -3,7 +3,7 @@ module IdentityKooragang
     include ConnectionExtension
     self.table_name = "callees"
     belongs_to :campaign
-    validates_uniqueness_of :phone_number, scope: :campaign
+    validates :phone_number, uniqueness: { scope: :campaign }
 
     def self.add_members(member_set)
       write_result = bulk_create(member_set)

@@ -20,7 +20,7 @@ describe IdentityKooragang::Callee do
     end
 
     it "doesn't insert duplicates into Kooragang" do
-      2.times do |index|
+      2.times do |_index|
         IdentityKooragang::Callee.add_members(@rows)
       end
       expect(@kooragang_campaign.callees.count).to eq(1)

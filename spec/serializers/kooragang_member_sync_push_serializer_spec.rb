@@ -4,7 +4,7 @@ describe IdentityKooragang::KooragangMemberSyncPushSerializer do
       Settings.stub_chain(:kooragang) { {} }
       @sync_id = 1
       @kooragang_campaign = FactoryBot.create(:kooragang_campaign)
-      @external_system_params = JSON.generate({'campaign_id' => @kooragang_campaign.id, priority: 2, phone_type: 'mobile'})
+      @external_system_params = JSON.generate({ 'campaign_id' => @kooragang_campaign.id, priority: 2, phone_type: 'mobile' })
       @member = FactoryBot.create(:member_with_mobile_and_custom_fields)
       list = FactoryBot.create(:list)
       FactoryBot.create(:list_member, list: list, member: @member)
@@ -49,18 +49,22 @@ describe IdentityKooragang::KooragangMemberSyncPushSerializer do
 
     context 'with include_rsvped_events' do
       let!(:nationbuilder_id) { '2' }
-      let!(:event_1) { Event.create!(
-        name: 'test 1',
-        start_time: 2.hours.since,
-        location: 'location 1',
-        data: {"site_slug": "test", "status": "published", "path": "/test1", "location": "test 1", "start_time": "2019-04-10T11:00:00+11:00"}
-      ) }
-      let!(:event_2) { Event.create!(
-        name: 'test 2',
-        start_time: 2.days.since,
-        location: 'location 2',
-        data: {"site_slug": "test", "status": "published", "path": "/test2", "start_time": "2019-04-11T11:00:00+10:00"}
-      ) }
+      let!(:event_1) {
+        Event.create!(
+          name: 'test 1',
+          start_time: 2.hours.since,
+          location: 'location 1',
+          data: { site_slug: "test", status: "published", path: "/test1", location: "test 1", start_time: "2019-04-10T11:00:00+11:00" }
+        )
+      }
+      let!(:event_2) {
+        Event.create!(
+          name: 'test 2',
+          start_time: 2.days.since,
+          location: 'location 2',
+          data: { site_slug: "test", status: "published", path: "/test2", start_time: "2019-04-11T11:00:00+10:00" }
+        )
+      }
       before do
         EventRsvp.create!(member_id: @member.id, event_id: event_1.id)
         EventRsvp.create!(member_id: @member.id, event_id: event_2.id)
