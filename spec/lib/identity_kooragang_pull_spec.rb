@@ -18,8 +18,6 @@ describe IdentityKooragang do
   context '#fetch_new_calls' do
 
     before(:each) do
-      $redis.reset
-
       @sync_id = 1
       @subscription = FactoryBot.create(:calling_subscription)
       Settings.stub_chain(:kooragang, :subscription_id) { @subscription.id }
