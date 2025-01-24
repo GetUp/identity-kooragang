@@ -3,7 +3,7 @@ module IdentityKooragang
     self.table_name = "calls"
     belongs_to :callee
     belongs_to :caller, optional: true
-    has_many :survey_results
+    has_many :survey_results, dependent: nil
     delegate :campaign, to: :callee, allow_nil: true
 
     scope :updated_calls, ->(last_updated_at) {

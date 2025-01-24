@@ -63,9 +63,9 @@ module IdentityKooragang
     private
 
     def summarise_event(event)
-      start_time = Time.parse(event.data['start_time']) rescue event.start_time
+      start_time = Time.zone.parse(event.data['start_time']) rescue event.start_time
       summary = "#{event.name} at #{event.location} at #{start_time.strftime('%H:%M on %F')}"
-      if path = event.data['path']
+      if (path = event.data['path'])
         summary += " (https://action.getup.org.au#{path})"
       end
       summary

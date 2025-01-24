@@ -97,13 +97,9 @@ module IdentityKooragang
   end
 
   def self.pull(sync_id, external_system_params)
-    begin
-      pull_job = JSON.parse(external_system_params)['pull_job'].to_s
-      self.send(pull_job, sync_id) do |records_for_import_count, records_for_import, records_for_import_scope, pull_deferred|
-        yield records_for_import_count, records_for_import, records_for_import_scope, pull_deferred
-      end
-    rescue => e
-      raise e
+    pull_job = JSON.parse(external_system_params)['pull_job'].to_s
+    self.send(pull_job, sync_id) do |records_for_import_count, records_for_import, records_for_import_scope, pull_deferred|
+      yield records_for_import_count, records_for_import, records_for_import_scope, pull_deferred
     end
   end
 
@@ -116,8 +112,8 @@ module IdentityKooragang
 
     started_at = DateTime.now
     redis_time = Sidekiq.redis { |r| r.get 'kooragang:calls:last_updated_at' }
-    last_updated_at = Time.parse(redis_time || '1970-01-01 00:00:00 UTC')
-    Rails.logger.info "#{SYSTEM_NAME.titleize} #{sync_id}: Fetching calls from: #{last_updated_at.utc.to_s(:inspect)} (redis: '#{redis_time}')"
+    last_updated_at = Time.zone.parse(redis_time || '1970-01-01 00:00:00 UTC')
+    Rails.logger.info "#{SYSTEM_NAME.titleize} #{sync_id}: Fetching calls from: #{last_updated_at.utc.to_fs(:inspect)} (redis: '#{redis_time}')"
 
     updated_calls = Call.updated_calls(force ? DateTime.new() : last_updated_at)
     updated_calls_all = Call.updated_calls_all(force ? DateTime.new() : last_updated_at)
@@ -128,11 +124,11 @@ module IdentityKooragang
 
     unless updated_calls.empty?
       Sidekiq.redis { |r|
-        # Use to_s(:inspect) here since KG stores timestamps with
+        # Use to_fs(:inspect) here since KG stores timestamps with
         # millisecond precision, but plain [Date]Time.to_s will
         # truncate the milliseconds, leading to the most recent call
         # allways being re-sync'ed.
-        r.set 'kooragang:calls:last_updated_at', updated_calls.last.updated_at.utc.to_s(:inspect)
+        r.set 'kooragang:calls:last_updated_at', updated_calls.last.updated_at.utc.to_fs(:inspect)
       }
     end
 
@@ -228,7 +224,7 @@ module IdentityKooragang
     end
   end
 
-  def self.fetch_current_campaigns(sync_id, force: false)
+  def self.fetch_current_campaigns(sync_id, _force: false)
     ## Do not run method if another worker is currently processing this method
     if self.worker_currently_running?(__method__.to_s, sync_id)
       yield 0, {}, {}, true
