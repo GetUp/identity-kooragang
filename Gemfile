@@ -27,6 +27,10 @@ group :development, :test do
   gem 'pry-byebug'
   gem 'spring-commands-rspec'
 
+  # Remove when upgrading to Rails >7.0
+  # See https://github.com/rails/rails/pull/54264
+  gem 'logger'
+
   # Identity requirements
   gem 'audited', '~> 5.4.2'
   gem 'phony'

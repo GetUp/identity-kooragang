@@ -2,6 +2,10 @@
 require 'spec_helper'
 ENV['RAILS_ENV'] ||= 'test'
 
+# Remove when upgrading to Rails >7.0
+# See https://github.com/rails/rails/pull/54264
+require "logger"
+
 # This is normally done as part of Rails boot. We need it earlier in test to
 # ensure ENV['DATABASE_URL'] is set so we can infer external database URLs next
 require 'dotenv'
