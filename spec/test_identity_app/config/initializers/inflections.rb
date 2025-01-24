@@ -11,6 +11,11 @@
 # end
 
 # These inflection rules are supported but not enabled by default:
-# ActiveSupport::Inflector.inflections(:en) do |inflect|
-#   inflect.acronym 'RESTful'
-# end
+ActiveSupport::Inflector.inflections(:en) do |inflect|
+  inflect.acronym 'AWS'
+  inflect.acronym 'API'
+  inflect.acronym 'CSV'
+  inflect.acronym 'DB'
+  inflect.acronym 'IRL'
+  inflect.acronym 'SMS'
+end

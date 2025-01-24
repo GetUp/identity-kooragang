@@ -1,7 +1,8 @@
 FactoryBot.define do
   factory :subscription do
     factory :calling_subscription do
-      name { 'Calling' }
+      slug { 'kg' }
+      name { 'Kooragang' }
     end
   end
 end

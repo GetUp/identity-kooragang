@@ -33,6 +33,7 @@ group :development, :test do
 
   # Identity requirements
   gem 'audited', '~> 5.4.2'
+  gem 'geocoder'
   gem 'phony'
   gem 'redis', '~> 4.8'
   gem 'sidekiq', '~> 6.5.10'

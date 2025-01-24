@@ -2,16 +2,29 @@
 class Hash
   def method_missing(method, *opts)
     m = method.to_s
-    return self[m] if key?(m)
+    if m == 'opt_out_subscription_id'
+      return Subscription::SMS_SUBSCRIPTION.id
+    end
+    if key?(m)
+      return self[m]
+    end
+
     super
   end
 end
 
 class Settings
+  def self.app
+    return {
+      "inbound_url" => 'http://localhost',
+    }
+  end
+
   def self.kooragang
     return {
       "database_url" => ENV['KOORAGANG_DATABASE_URL'],
       "read_only_database_url" => ENV['KOORAGANG_READ_ONLY_DATABASE_URL'],
+      "opt_out_subscription_id" => nil, # See above
       "push_batch_amount" => 10,
       "pull_batch_amount" => 10,
     }
@@ -47,6 +60,24 @@ class Settings
     }
   end
 
+  def self.act
+    return {
+      "sync_rsvp_to_act" => false
+    }
+  end
+
+  def self.deduper
+    return {
+      "enabled" => false
+    }
+  end
+
+  def self.email
+    return {
+      "unsubscribe_url" => "http://localhost/unsubscribe",
+    }
+  end
+
   def self.options
     return {
       "default_member_opt_in_subscriptions" => false,
@@ -54,6 +85,12 @@ class Settings
       "default_phone_country_code" => '61',
       "default_mobile_phone_national_destination_code" => '4',
       "ignore_name_change_for_donation" => true
+    }
+  end
+
+  def self.rollbar
+    return {
+      "api_key" => nil
     }
   end
 end
