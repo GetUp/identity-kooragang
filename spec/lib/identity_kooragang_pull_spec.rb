@@ -185,9 +185,23 @@ describe IdentityKooragang do
     end
 
     it "succeeds if caller phone can't be matched" do
-      callee = FactoryBot.create(:kooragang_callee, phone_number: '61427700409', campaign: @kooragang_campaign)
-      caller = FactoryBot.create(:kooragang_caller, phone_number: '6142409')
-      FactoryBot.create(:kooragang_call, created_at: @time, callee: callee, caller: caller, ended_at: @time + 60.seconds, status: 'success')
+      callee = FactoryBot.create(
+        :kooragang_callee,
+        phone_number: '61427700409',
+        campaign: @kooragang_campaign
+      )
+      caller = FactoryBot.create(
+        :kooragang_caller,
+        phone_number: '6142409'
+      )
+      FactoryBot.create(
+        :kooragang_call,
+        created_at: @time,
+        callee: callee,
+        caller: caller,
+        ended_at: @time + 60.seconds,
+        status: 'success'
+      )
       IdentityKooragang.fetch_new_calls(@sync_id) {
         # noop
       }

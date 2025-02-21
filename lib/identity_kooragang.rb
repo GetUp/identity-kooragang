@@ -155,14 +155,18 @@ module IdentityKooragang
 
     contact = Contact.find_or_initialize_by(external_id: call.id.to_s, system: SYSTEM_NAME)
 
-    # Callee upsert phone against member_id
-    contactee = UpsertMember.call(
-      { phones: [{ phone: call.callee.phone_number }], firstname: call.callee.first_name, member_id: call.callee.external_id },
-      entry_point: "#{SYSTEM_NAME}",
-      ignore_name_change: false
-    )
-
-    unless contactee
+    begin
+      # Callee upsert phone against member_id
+      contactee = UpsertMember.call(
+        {
+          firstname: call.callee.first_name,
+          member_id: call.callee.external_id,
+          phones: [{ phone: call.callee.phone_number }],
+        },
+        entry_point: "#{SYSTEM_NAME}",
+        ignore_name_change: false
+      )
+    rescue
       Rails.logger.error "#{SYSTEM_NAME.titleize} #{sync_id}: Contactee #{call.inspect} could not be inserted because the contactee could not be created"
       return
     end

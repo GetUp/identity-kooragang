@@ -3,7 +3,7 @@ module IdentityKooragang
     attributes :external_id, :first_name, :phone_number, :campaign_id, :audience_id, :data, :callable
 
     def external_id
-      @object.id
+      @object.id.to_s
     end
 
     def first_name
